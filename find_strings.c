@@ -5,7 +5,7 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <unistd.h>
-#include <regex.h>
+#include <regex>
 #include <linux/limits.h>
 
 #define MAX_STRINGS 1000
