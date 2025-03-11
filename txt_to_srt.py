@@ -10,26 +10,34 @@ def youtube_to_srt(input_text):
         hours = seconds // 3600
         minutes = (seconds % 3600) // 60
         seconds = seconds % 60
-        return f"{hours:02}:{minutes:02}:{seconds:06.3f}".replace('.', ',')
+        return f"{hours:02}:{minutes:02}:{seconds:02}"
 
     # Parse lines
     i = 0
     while i < len(lines):
-        if re.match(r'\d+:\d+', lines[i]):  # Time format (e.g., 0:00)
+        if re.match(r'(?:2[0-3]|[01]\d|\d):[0-5]\d', lines[i]):  # Time format (e.g., 0:00)
             start_time = lines[i]
-            start_seconds = int(start_time.split(':')[0]) * 60 + int(start_time.split(':')[1])
+            start_time_parts = start_time.split(':')
+            if len(start_time_parts) == 2:
+                start_seconds = int(start_time_parts[0]) * 60 + int(start_time_parts[1])
+            if len(start_time_parts) == 3:
+                start_seconds = int(start_time_parts[0]) * 3600  + int(start_time_parts[1]) * 60 + int(start_time_parts[2])
             start_formatted = format_time(start_seconds)
 
             # Find the next time or end of the text
             j = i + 1
             subtitle_text = []
-            while j < len(lines) and not re.match(r'\d+:\d+', lines[j]):
+            while j < len(lines) and not re.match(r'(?:2[0-3]|[01]\d|\d):[0-5]\d', lines[j]):
                 subtitle_text.append(lines[j])
                 j += 1
 
             if j < len(lines):
                 end_time = lines[j]
-                end_seconds = int(end_time.split(':')[0]) * 60 + int(end_time.split(':')[1])
+                end_time_parts = end_time.split(':')
+            if len(end_time_parts) == 2:
+                end_seconds = int(end_time_parts[0]) * 60 + int(end_time_parts[1])
+            if len(end_time_parts) == 3:
+                end_seconds = int(end_time_parts[0]) * 3600  + int(end_time_parts[1]) * 60 + int(end_time_parts[2])
             else:
                 end_seconds = start_seconds + 2  # Assume each subtitle lasts 2 seconds if no end time
 
