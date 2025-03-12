@@ -1,79 +1,70 @@
 import re
 import sys
 
-def youtube_to_srt(input_text):
-    lines = input_text.strip().split('\n')
+def format_time(total_seconds):
+    """Convert total seconds to SRT time format (HH:MM:SS,000)"""
+    hours = total_seconds // 3600
+    minutes = (total_seconds % 3600) // 60
+    seconds = total_seconds % 60
+    return f"{hours:02}:{minutes:02}:{seconds:02},000"
+
+def parse_timestamp(timestamp):
+    """Convert a timestamp (MM:SS or HH:MM:SS) into total seconds"""
+    parts = list(map(int, timestamp.split(":")))
+    if len(parts) == 2:  # Format MM:SS
+        return parts[0] * 60 + parts[1]
+    elif len(parts) == 3:  # Format HH:MM:SS
+        return parts[0] * 3600 + parts[1] * 60 + parts[2]
+    return 0
+
+def youtube_to_srt(input_file, output_file):
+    """Convert YouTube subtitle format to SRT format"""
+    with open(input_file, "r", encoding="utf-8") as infile:
+        lines = [line.strip() for line in infile.readlines()]
+
+    re_time = re.compile(r"^\d{1,2}:\d{2}(:\d{2})?$")  # Matches MM:SS or HH:MM:SS
     srt_output = []
     subtitle_number = 1
+    start_time, end_time = None, None
+    subtitle_text = []
 
-    def format_time(seconds):
-        hours = seconds // 3600
-        minutes = (seconds % 3600) // 60
-        seconds = seconds % 60
-        return f"{hours:02}:{minutes:02}:{seconds:02}"
+    for line in lines:
+        if re_time.match(line):  # If it's a timestamp
+            # Process previous subtitle if exists
+            if start_time and subtitle_text:
+                srt_output.append(f"{subtitle_number}")
+                srt_output.append(f"{start_time} --> {end_time}")
+                srt_output.append(" ".join(subtitle_text))
+                srt_output.append("")
+                subtitle_number += 1
+                subtitle_text = []
 
-    # Parse lines
-    i = 0
-    while i < len(lines):
-        if re.match(r'(?:2[0-3]|[01]\d|\d):[0-5]\d', lines[i]):  # Time format (e.g., 0:00)
-            start_time = lines[i]
-            start_time_parts = start_time.split(':')
-            if len(start_time_parts) == 2:
-                start_seconds = int(start_time_parts[0]) * 60 + int(start_time_parts[1])
-            if len(start_time_parts) == 3:
-                start_seconds = int(start_time_parts[0]) * 3600  + int(start_time_parts[1]) * 60 + int(start_time_parts[2])
-            start_formatted = format_time(start_seconds)
+            # Convert timestamp to total seconds
+            start_seconds = parse_timestamp(line)
+            start_time = format_time(start_seconds)
+            end_time = format_time(start_seconds + 2)  # Default duration: 2s
 
-            # Find the next time or end of the text
-            j = i + 1
-            subtitle_text = []
-            while j < len(lines) and not re.match(r'(?:2[0-3]|[01]\d|\d):[0-5]\d', lines[j]):
-                subtitle_text.append(lines[j])
-                j += 1
+        elif start_time:
+            subtitle_text.append(line)
 
-            if j < len(lines):
-                end_time = lines[j]
-                end_time_parts = end_time.split(':')
-            if len(end_time_parts) == 2:
-                end_seconds = int(end_time_parts[0]) * 60 + int(end_time_parts[1])
-            if len(end_time_parts) == 3:
-                end_seconds = int(end_time_parts[0]) * 3600  + int(end_time_parts[1]) * 60 + int(end_time_parts[2])
-            else:
-                end_seconds = start_seconds + 2  # Assume each subtitle lasts 2 seconds if no end time
+    # Process last subtitle if exists
+    if start_time and subtitle_text:
+        srt_output.append(f"{subtitle_number}")
+        srt_output.append(f"{start_time} --> {end_time}")
+        srt_output.append(" ".join(subtitle_text))
+        srt_output.append("")
 
-            end_formatted = format_time(end_seconds)
+    # Write to output file
+    with open(output_file, "w", encoding="utf-8") as outfile:
+        outfile.write("\n".join(srt_output) + "\n")
 
-            # Add subtitle entry
-            srt_output.append(f"{subtitle_number}")
-            srt_output.append(f"{start_formatted} --> {end_formatted}")
-            srt_output.append(' '.join(subtitle_text))
-            srt_output.append('')
-
-            subtitle_number += 1
-            i = j
-        else:
-            i += 1
-
-    return '\n'.join(srt_output)
-
-def main():
+if __name__ == "__main__":
     if len(sys.argv) != 3:
-        print("Usage: python script.py <input_file> <output_file>")
+        print("Usage: python youtube_to_srt.py <input_file> <output_file>")
         sys.exit(1)
 
     input_file = sys.argv[1]
     output_file = sys.argv[2]
 
-    # Read input text from file
-    with open(input_file, 'r') as file:
-        input_text = file.read()
-
-    # Convert YouTube subtitles to SRT format
-    srt_output = youtube_to_srt(input_text)
-
-    # Write the result to output file
-    with open(output_file, 'w') as file:
-        file.write(srt_output)
-
-if __name__ == "__main__":
-    main()
+    youtube_to_srt(input_file, output_file)
+    print("Conversion completed successfully!")
